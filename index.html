@@ -1,1 +1,63 @@
-ich bin ein hacker man
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Lokaler Media Player</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            text-align: center;
+        }
+        video, audio {
+            margin-top: 20px;
+            width: 80%;
+            max-width: 720px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Lokales Video / MP3 abspielen</h2>
+
+<input type="file" id="fileInput" accept="video/*,audio/*">
+
+<br>
+
+<video id="videoPlayer" controls hidden></video>
+<audio id="audioPlayer" controls hidden></audio>
+
+<script>
+    const fileInput = document.getElementById("fileInput");
+    const videoPlayer = document.getElementById("videoPlayer");
+    const audioPlayer = document.getElementById("audioPlayer");
+
+    fileInput.addEventListener("change", function () {
+        const file = this.files[0];
+        if (!file) return;
+
+        const url = URL.createObjectURL(file);
+
+        // Reset
+        videoPlayer.hidden = true;
+        audioPlayer.hidden = true;
+        videoPlayer.pause();
+        audioPlayer.pause();
+
+        if (file.type.startsWith("video")) {
+            videoPlayer.src = url;
+            videoPlayer.hidden = false;
+            videoPlayer.play();
+        } else if (file.type.startsWith("audio")) {
+            audioPlayer.src = url;
+            audioPlayer.hidden = false;
+            audioPlayer.play();
+        } else {
+            alert("Nicht unterstütztes Dateiformat.");
+        }
+    });
+</script>
+
+</body>
+</html>

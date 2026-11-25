@@ -2,59 +2,242 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lokaler Media Player</title>
     <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #f5f5f5;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --btn-bg: #2d2d2d;
+            --btn-hover: #3d3d3d;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .player-container {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            width: 100%;
+            max-width: 800px;
             text-align: center;
         }
+
+        h2 {
+            margin-top: 0;
+            font-weight: 600;
+        }
+
+        /* Schönerer Datei-Upload-Button */
+        .file-upload-label {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .file-upload-label:hover {
+            background: var(--accent-hover);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 20px;
+            min-height: 1.2em;
+        }
+
         video, audio {
+            width: 100%;
+            border-radius: 8px;
+            outline: none;
+            background: #000;
+        }
+
+        audio {
+            background: transparent;
+            margin-top: 10px;
+        }
+
+        /* Skip-Steuerung */
+        .controls {
             margin-top: 20px;
-            width: 80%;
-            max-width: 720px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .controls[hidden] {
+            display: none;
+        }
+
+        .skip-btn {
+            background: var(--btn-bg);
+            color: var(--text-color);
+            border: 1px solid #333;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+
+        .skip-btn:hover {
+            background: var(--btn-hover);
+            border-color: #555;
+        }
+
+        .skip-btn:active {
+            transform: scale(0.95);
+        }
+
+        .divider {
+            width: 2px;
+            height: 24px;
+            background: #333;
+            margin: 0 6px;
+        }
+
+        .hint {
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: #777;
         }
     </style>
 </head>
 <body>
 
-<h2>Lokales Video / MP3 abspielen</h2>
+<div class="player-container">
+    <h2>Lokaler Media Player</h2>
 
-<input type="file" id="fileInput" accept="video/*,audio/*">
+    <label for="fileInput" class="file-upload-label">📁 Datei auswählen</label>
+    <input type="file" id="fileInput" accept="video/*,audio/*">
+    <div id="fileName" class="file-name">Keine Datei ausgewählt</div>
 
-<br>
+    <video id="videoPlayer" controls hidden></video>
+    <audio id="audioPlayer" controls hidden></audio>
 
-<video id="videoPlayer" controls hidden></video>
-<audio id="audioPlayer" controls hidden></audio>
+    <!-- Skip-Buttons -->
+    <div id="skipControls" class="controls" hidden>
+        <button class="skip-btn" onclick="skip(-10)">⏪ -10s</button>
+        <button class="skip-btn" onclick="skip(-5)">⏪ -5s</button>
+        <button class="skip-btn" onclick="skip(-3)">⏪ -3s</button>
+        
+        <div class="divider"></div>
+        
+        <button class="skip-btn" onclick="skip(3)">+3s ⏩</button>
+        <button class="skip-btn" onclick="skip(5)">+5s ⏩</button>
+        <button class="skip-btn" onclick="skip(10)">+10s ⏩</button>
+    </div>
+
+    <div id="keyboardHint" class="hint" hidden>
+        Tipp: Nutze die Pfeiltasten (← / →) für ±5 Sek. und die Leertaste für Pause/Play.
+    </div>
+</div>
 
 <script>
     const fileInput = document.getElementById("fileInput");
+    const fileNameDisplay = document.getElementById("fileName");
     const videoPlayer = document.getElementById("videoPlayer");
     const audioPlayer = document.getElementById("audioPlayer");
+    const skipControls = document.getElementById("skipControls");
+    const keyboardHint = document.getElementById("keyboardHint");
+
+    let activePlayer = null;
+    let currentObjectUrl = null;
 
     fileInput.addEventListener("change", function () {
         const file = this.files[0];
         if (!file) return;
 
-        const url = URL.createObjectURL(file);
+        // Alten Speicher freigeben, falls zuvor eine Datei geladen war
+        if (currentObjectUrl) {
+            URL.revokeObjectURL(currentObjectUrl);
+        }
 
-        // Reset
+        currentObjectUrl = URL.createObjectURL(file);
+        fileNameDisplay.textContent = file.name;
+
+        // Player zurücksetzen
         videoPlayer.hidden = true;
         audioPlayer.hidden = true;
         videoPlayer.pause();
         audioPlayer.pause();
 
         if (file.type.startsWith("video")) {
-            videoPlayer.src = url;
-            videoPlayer.hidden = false;
-            videoPlayer.play();
+            activePlayer = videoPlayer;
         } else if (file.type.startsWith("audio")) {
-            audioPlayer.src = url;
-            audioPlayer.hidden = false;
-            audioPlayer.play();
+            activePlayer = audioPlayer;
         } else {
             alert("Nicht unterstütztes Dateiformat.");
+            activePlayer = null;
+            skipControls.hidden = true;
+            keyboardHint.hidden = true;
+            return;
+        }
+
+        activePlayer.src = currentObjectUrl;
+        activePlayer.hidden = false;
+        skipControls.hidden = false;
+        keyboardHint.hidden = false;
+        activePlayer.play();
+    });
+
+    // Zentrale Skip-Funktion
+    function skip(seconds) {
+        if (!activePlayer) return;
+
+        // Neue Zeit berechnen und sicherstellen, dass sie zwischen 0 und der Gesamtlänge liegt
+        const newTime = activePlayer.currentTime + seconds;
+        activePlayer.currentTime = Math.max(0, Math.min(activePlayer.duration || 0, newTime));
+    }
+
+    // Tastatur-Shortcuts hinzufügen
+    document.addEventListener("keydown", function (event) {
+        if (!activePlayer) return;
+
+        // Verhindern, dass die Seite scrollt, wenn Leertaste/Pfeiltasten gedrückt werden
+        if (["Space", "ArrowLeft", "ArrowRight"].includes(event.code)) {
+            // Nur abfangen, wenn der Fokus nicht direkt auf den nativen Video-Controls liegt
+            if (document.activeElement !== activePlayer) {
+                event.preventDefault();
+            }
+        }
+
+        if (event.code === "ArrowLeft") {
+            skip(-5);
+        } else if (event.code === "ArrowRight") {
+            skip(5);
+        } else if (event.code === "Space" && document.activeElement !== activePlayer) {
+            if (activePlayer.paused) {
+                activePlayer.play();
+            } else {
+                activePlayer.pause();
+            }
         }
     });
 </script>
